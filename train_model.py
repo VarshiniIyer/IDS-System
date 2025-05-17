@@ -1,55 +1,59 @@
 import pandas as pd
+import numpy as np
 import pickle
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
+from xgboost import XGBClassifier
 
-# Load the processed data
-train_df = pd.read_csv('processed_train.csv')
-test_df = pd.read_csv('processed_test.csv')
+# Load dataset - replace with your CSV filename
+data = pd.read_csv('processed_train.csv')
 
-# Load encoders
-with open('protocol_type_encoder.pkl', 'rb') as f:
-    protocol_encoder = pickle.load(f)
-with open('service_encoder.pkl', 'rb') as f:
-    service_encoder = pickle.load(f)
-with open('flag_encoder.pkl', 'rb') as f:
-    flag_encoder = pickle.load(f)
-with open('label_encoder.pkl', 'rb') as f:
-    label_encoder = pickle.load(f)
+# Convert columns to numeric and fill NaNs (example for your dataset)
+data['duration'] = pd.to_numeric(data['duration'], errors='coerce').fillna(0)
+data['dst_host_srv_rerror_rate'] = pd.to_numeric(data['dst_host_srv_rerror_rate'], errors='coerce').fillna(0)
 
-# Encode categorical columns in train data
-train_df['protocol_type'] = protocol_encoder.transform(train_df['protocol_type'])
-train_df['service'] = service_encoder.transform(train_df['service'])
-train_df['flag'] = flag_encoder.transform(train_df['flag'])
-train_df['label'] = label_encoder.transform(train_df['label'])
+# Categorical columns to encode
+categorical_cols = ['protocol_type', 'service', 'flag']
 
-# Encode categorical columns in test data
-test_df['protocol_type'] = protocol_encoder.transform(test_df['protocol_type'])
-test_df['service'] = service_encoder.transform(test_df['service'])
-test_df['flag'] = flag_encoder.transform(test_df['flag'])
-test_df['label'] = label_encoder.transform(test_df['label'])
+# Dictionary to store encoders for each categorical feature
+encoders = {}
 
-# Separate features and label
-X_train = train_df.drop('label', axis=1)
-y_train = train_df['label']
+# Encode categorical features and save encoders
+for col in categorical_cols:
+    le = LabelEncoder()
+    data[col] = le.fit_transform(data[col].astype(str))
+    encoders[col] = le
+    with open(f'{col}_encoder.pkl', 'wb') as f:
+        pickle.dump(le, f)
 
-X_test = test_df.drop('label', axis=1)
-y_test = test_df['label']
+# Encode label column and save encoder
+label_encoder = LabelEncoder()
+data['label'] = label_encoder.fit_transform(data['label'].astype(str))
+with open('label_encoder.pkl', 'wb') as f:
+    pickle.dump(label_encoder, f)
 
-# Train the model
-clf = RandomForestClassifier(n_estimators=100, random_state=42)
-clf.fit(X_train, y_train)
+print("Data types after preprocessing:")
+print(data.dtypes)
+
+# Prepare features and target
+X = data.drop('label', axis=1)
+y = data['label']
+
+# Split data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train XGBoost classifier
+model = XGBClassifier(eval_metric='mlogloss', random_state=42)
+model.fit(X_train, y_train)
 
 # Evaluate
-y_pred = clf.predict(X_test)
-print("\nClassification Report:\n")
-print(classification_report(y_test, y_pred))
+y_pred = model.predict(X_test)
+print("Classification Report:")
+print(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
 
-# Save model and columns
-with open('ids_model.pkl', 'wb') as f:
-    pickle.dump(clf, f)
+# Save model
+with open('xgb_model.pkl', 'wb') as f:
+    pickle.dump(model, f)
 
-with open('columns.pkl', 'wb') as f:
-    pickle.dump(X_train.columns.tolist(), f)
-
-print("\nModel training complete! Saved as ids_model.pkl and columns.pkl")
+print("Training completed successfully. Model and encoders saved.")

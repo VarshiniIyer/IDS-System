@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IDS Prediction</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 800px; margin: auto; padding: 20px; }
+      textarea { font-family: monospace; font-size: 14px; }
+      input[type="submit"] { padding: 10px 20px; font-size: 16px; }
+      h3 { color: darkblue; }
+    </style>
+</head>
+<body>
+    <h2>Intrusion Detection System - Predict</h2>
+    <p><b>Note:</b> Enter 41 numeric features separated by commas. The first three features (protocol_type, service, flag) must be their encoded numeric values.</p>
+    <form action="/predict" method="post">
+        <label for="features">Enter 41 numeric features (comma-separated):</label><br><br>
+        <textarea name="features" rows="5" cols="120" placeholder="e.g. 1,10,4,181,5450,0,0,..." required></textarea><br><br>
+        <input type="submit" value="Predict">
+    </form>
+    <br>
+    {% if prediction_text %}
+        <h3>{{ prediction_text }}</h3>
+    {% endif %}
+</body>
+</html>
